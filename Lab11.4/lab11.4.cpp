@@ -15,10 +15,12 @@ struct Note {
 #pragma pack(pop)
 
 void createNote(const string& filename);
-void printNotes(const string& filename);
+void printNotes(const Note* notes, int numNotes);
 void sortNotesByPhoneNumber(const string& filename);
 bool searchByLastName(const string& filename, const string& lastName, Note& foundNote);
 void displayFullNoteDetails(const Note& note);
+void writeNotes(const string& filename, const Note* notes, int numNotes);
+void readAndPrintNotes(const string& filename);
 
 int main() {
     string filename;
@@ -42,7 +44,7 @@ int main() {
             createNote(filename);
             break;
         case 2:
-            printNotes(filename);
+            readAndPrintNotes(filename);
             break;
         case 3:
             sortNotesByPhoneNumber(filename);
@@ -79,29 +81,28 @@ void createNote(const string& filename) {
     cin.getline(note.lastName, 50);
     cout << "Enter Phone number: ";
     cin.getline(note.phoneNumber, 15);
+
     cout << "Birth date (day month year): ";
-    cin >> note.birthDate[0] >> note.birthDate[1] >> note.birthDate[2];
+    if (!(cin >> note.birthDate[0] >> note.birthDate[1] >> note.birthDate[2])) {
+        cerr << "Invalid input. Please enter numeric values for date." << endl;
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        return;
+    }
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
     fileOut.write(reinterpret_cast<const char*>(&note), sizeof(note));
     fileOut.close();
 }
 
-void printNotes(const string& filename) {
-    ifstream fileIn(filename, ios::binary);
-    if (!fileIn) {
-        cerr << "Cannot open file " << filename << " for reading." << endl;
-        return;
-    }
-
-    cout << "=====================================================================================================" << endl;
+void printNotes(const Note* notes, int numNotes) {
+    cout << "============================================================================================" << endl;
     cout << "|  ¹  |   Surname    |  Name  |  Phone Number  |  Day   | Month  |  Year  |" << endl;
-    cout << "-----------------------------------------------------------------------------------------------------" << endl;
+    cout << "--------------------------------------------------------------------------------------------" << endl;
 
-    Note note;
-    int i = 1;
-    while (fileIn.read(reinterpret_cast<char*>(&note), sizeof(note))) {
-        cout << "|" << setw(4) << right << i++ << " ";
+    for (int i = 0; i < numNotes; ++i) {
+        const Note& note = notes[i];
+        cout << "|" << setw(4) << right << i + 1 << " ";
         cout << "|" << setw(14) << left << note.lastName;
         cout << "|" << setw(8) << left << note.firstName;
         cout << "|" << setw(15) << left << note.phoneNumber;
@@ -110,8 +111,7 @@ void printNotes(const string& filename) {
         }
         cout << "|" << endl;
     }
-    cout << "=====================================================================================================" << endl << endl;
-    fileIn.close();
+    cout << "=============================================================================================" << endl << endl;
 }
 
 void sortNotesByPhoneNumber(const string& filename) {
@@ -184,4 +184,39 @@ void displayFullNoteDetails(const Note& note) {
     cout << "Last Name: " << note.lastName << endl;
     cout << "Phone Number: " << note.phoneNumber << endl;
     cout << "Birth Date: " << note.birthDate[0] << "-" << note.birthDate[1] << "-" << note.birthDate[2] << endl;
+}
+
+void writeNotes(const string& filename, const Note* notes, int numNotes) {
+    ofstream file(filename, ios::binary);
+    if (!file) {
+        cerr << "Error opening file for writing." << endl;
+        return;
+    }
+
+    for (int i = 0; i < numNotes; ++i) {
+        file.write(reinterpret_cast<const char*>(&notes[i]), sizeof(Note));
+    }
+
+    file.close();
+}
+
+void readAndPrintNotes(const string& filename) {
+    ifstream file(filename, ios::binary);
+    if (!file) {
+        cerr << "Error opening file for reading." << endl;
+        return;
+    }
+
+    file.seekg(0, ios::end);
+    size_t fileSize = file.tellg();
+    file.seekg(0, ios::beg);
+
+    int numNotes = fileSize / sizeof(Note);
+    Note* notes = new Note[numNotes];
+
+    file.read(reinterpret_cast<char*>(notes), sizeof(Note) * numNotes);
+    printNotes(notes, numNotes);
+
+    delete[] notes;
+    file.close();
 }
